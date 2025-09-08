@@ -1,0 +1,11 @@
+.wrapper[data-progress] .bar {
+	/* attr() with percentage is limited; fallback via transform scaleX */
+	transform-origin: left center;
+}
+
+/* Use a set of utility classes generated dynamically is complex; rely on data attribute + inline style previously.
+	 As a compromise without inline styles, we'll map via a small progressive enhancement script if needed (not included). */
+
+.bar {
+	width: 100%;
+}

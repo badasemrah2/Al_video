@@ -1,0 +1,336 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Moon, Sun, Sparkles, Zap, History } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { TextToVideo } from '@/components/TextToVideo';
+import { ImageToVideo } from '@/components/ImageToVideo';
+import { VideoPlayer } from '@/components/VideoPlayer';
+import { ProgressBar } from '@/components/ProgressBar';
+import { GenerationHistory } from '@/components/GenerationHistory';
+import { useVideoGeneration } from '@/hooks/useVideoGeneration';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { GenerationJob } from '@/lib/types';
+
+export default function Home() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState('metinden-video');
+  const [showHistory, setShowHistory] = useState(false);
+  
+  const {
+    currentJob,
+    isGenerating,
+    generateTextToVideo,
+    generateImageToVideo,
+    downloadVideo,
+    temizle
+  } = useVideoGeneration();
+
+  const [generationHistory, setGenerationHistory] = useLocalStorage<GenerationJob[]>('video-uretim-gecmisi', []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (currentJob && currentJob.status === 'completed') {
+      setGenerationHistory(prev => {
+        const existing = prev.find(job => job.id === currentJob.id);
+        if (existing) {
+          return prev.map(job => job.id === currentJob.id ? currentJob : job);
+        }
+        return [currentJob, ...prev].slice(0, 50); // Son 50 işi tut
+      });
+    }
+  }, [currentJob, setGenerationHistory]);
+
+  const handleDeleteHistoryItem = (jobId: string) => {
+    setGenerationHistory(prev => prev.filter(job => job.id !== jobId));
+  };
+
+  if (!mounted) {
+    return null; // Hydration uyumsuzluğunu önle
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-950 dark:via-blue-950 dark:to-purple-950">
+      {/* Başlık */}
+      <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center space-x-3"
+            >
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  AI Video Stüdyosu
+                </h1>
+                <p className="text-sm text-muted-foreground hidden sm:block">
+                  AI ile harika videolar oluşturun
+                </p>
+              </div>
+            </motion.div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHistory(!showHistory)}
+                className="hidden sm:flex"
+              >
+                <History className="w-4 h-4 mr-2" />
+                Geçmiş
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              >
+                {theme === 'light' ? (
+                  <Moon className="w-4 h-4" />
+                ) : (
+                  <Sun className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Ana İçerik */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Hero Bölümü */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center space-y-4 mb-8"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+                Fikirlerinizi{' '}
+                <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  Muhteşem Videolara
+                </span>
+                {' '}Dönüştürün
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Metin açıklamalarından profesyonel videolar üretin veya görsellerinizi 
+                son teknoloji AI teknolojimizle canlandırın.
+              </p>
+            </motion.div>
+
+            {/* Üretim Arayüzü */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="p-6 backdrop-blur-sm bg-background/80">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="metinden-video" className="flex items-center space-x-2">
+                      <Zap className="w-4 h-4" />
+                      <span>Metinden Video</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="gorseldan-video" className="flex items-center space-x-2">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Görseldan Video</span>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="metinden-video" className="mt-6">
+                    <TextToVideo
+                      onGenerate={generateTextToVideo}
+                      isGenerating={isGenerating}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="gorseldan-video" className="mt-6">
+                    <ImageToVideo
+                      onGenerate={generateImageToVideo}
+                      isGenerating={isGenerating}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </Card>
+            </motion.div>
+
+            {/* İlerleme ve Sonuçlar */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Debug bilgisi - her zaman göster */}
+              <Card className="p-4 bg-muted">
+                <div className="text-sm font-mono">
+                  <div>Current Job: {currentJob ? 'Var' : 'Yok'}</div>
+                  {currentJob && (
+                    <>
+                      <div>Job ID: {currentJob.id}</div>
+                      <div>Status: {currentJob.status}</div>
+                      <div>Progress: {currentJob.progress}%</div>
+                      <div>Result URL: {currentJob.resultUrl || 'Yok'}</div>
+                    </>
+                  )}
+                  <div>Is Generating: {isGenerating ? 'Evet' : 'Hayır'}</div>
+                </div>
+              </Card>
+
+              {currentJob && (
+                <>
+                  {currentJob.status !== 'completed' && (
+                    <Card className="p-6">
+                      <ProgressBar
+                        progress={currentJob.progress}
+                        status={currentJob.status}
+                        className="space-y-2"
+                      />
+                    </Card>
+                  )}
+
+                  {currentJob.status === 'completed' && currentJob.resultUrl && (
+                    <VideoPlayer
+                      src={currentJob.resultUrl}
+                      title={`${currentJob.type === 'text-to-video' ? 'Üretilen' : 'Canlandırılan'} Video`}
+                      onDownload={() => downloadVideo(currentJob.id)}
+                    />
+                  )}
+
+                  {/* Fallback video player - test için */}
+                  {currentJob.resultUrl && currentJob.status !== 'completed' && (
+                    <Card className="p-4 border-orange-500">
+                      <div className="text-sm text-orange-600 mb-2">Test Video Player (Job henüz completed değil):</div>
+                      <VideoPlayer
+                        src={currentJob.resultUrl}
+                        title="Test Video"
+                        onDownload={() => downloadVideo(currentJob.id)}
+                      />
+                    </Card>
+                  )}
+                </>
+              )}
+
+                  {currentJob.status === 'failed' && (
+                    <Card className="p-6 border-destructive">
+                      <div className="text-center space-y-3">
+                        <h3 className="text-lg font-semibold text-destructive">
+                          Üretim Başarısız
+                        </h3>
+                        <p className="text-muted-foreground">
+                          {currentJob.error || 'Beklenmeyen bir hata oluştu'}
+                        </p>
+                        <Button onClick={temizle} variant="outline">
+                          Tekrar Dene
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              )}
+            </motion.div>
+          </div>
+
+          {/* Kenar Çubuğu */}
+          <div className="space-y-6">
+            {/* İstatistikler */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="p-6 backdrop-blur-sm bg-background/80">
+                <h3 className="font-semibold mb-4">Üretim İstatistikleri</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Toplam Üretilen</span>
+                    <span className="font-semibold">{generationHistory.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Başarılı</span>
+                    <span className="font-semibold text-green-600">
+                      {generationHistory.filter(job => job.status === 'completed').length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">İşlemde</span>
+                    <span className="font-semibold text-blue-600">
+                      {generationHistory.filter(job => job.status === 'processing').length}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Geçmiş */}
+            {(showHistory || generationHistory.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <GenerationHistory
+                  jobs={generationHistory.slice(0, 10)} // Son 10 işi göster
+                  onDownload={downloadVideo}
+                  onDelete={handleDeleteHistoryItem}
+                />
+              </motion.div>
+            )}
+
+            {/* İpuçları */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Card className="p-6 backdrop-blur-sm bg-background/80">
+                <h3 className="font-semibold mb-4">💡 Profesyonel İpuçları</h3>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-primary font-medium">•</span>
+                    <span>En iyi sonuçlar için prompt&apos;larınızda spesifik ve açıklayıcı olun</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-primary font-medium">•</span>
+                    <span>Görseldan video için yüksek kaliteli görseller kullanın (1024x1024 önerilen)</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-primary font-medium">•</span>
+                    <span>Üretim karmaşıklığa bağlı olarak genellikle 2-5 dakika sürer</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-primary font-medium">•</span>
+                    <span>Çeşitlilik için farklı stiller ve kamera hareketleri deneyin</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-primary font-medium">•</span>
+                    <span>n8n webhook URL&apos;i ekleyerek otomasyonlarınızla entegre edin</span>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      </main>
+
+      {/* Alt Bilgi */}
+      <footer className="border-t bg-background/80 backdrop-blur-sm mt-16">
+        <div className="container mx-auto px-4 py-6 text-center text-muted-foreground">
+          <p>&copy; 2025 AI Video Stüdyosu. Yapay zeka ile muhteşem videolar oluşturun.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
