@@ -102,9 +102,7 @@ async function processImageToVideoGeneration(job: GenerationJob, options: ImageT
     publishProgress(job.id, { status: 'processing', progress: 5 });
     
     const num_frames = options.duration * options.fps;
-    const motion_bucket_id = options.motionIntensity === 'low' ? 40 : options.motionIntensity === 'high' ? 200 : 120;
     const output = await generateImageToVideo(imageDataUrl, { 
-      motion_bucket_id, 
       fps: options.fps, 
       num_frames,
       prompt: options.prompt || "A high quality video" 

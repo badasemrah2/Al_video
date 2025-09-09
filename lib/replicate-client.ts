@@ -94,12 +94,15 @@ export async function generateImageToVideo(
 ) {
   if (!image) throw new Error('Image required');
   
-  // Kling model requires prompt parameter
+  // Kling model uses reference_images parameter for image-to-video
   const input: any = { 
-    image,
-    prompt: options.prompt || "A high quality video",
-    ...options 
+    reference_images: [image], // Kling model expects an array of reference images
+    prompt: options.prompt || "A high quality video"
   };
+  
+  // Add other Kling-specific parameters if provided
+  if (options.fps) input.fps = options.fps;
+  if (options.num_frames) input.num_frames = options.num_frames;
   
   return await replicate.run(
     modelRef(IMG2VIDEO_MODEL, IMG2VIDEO_VERSION),
