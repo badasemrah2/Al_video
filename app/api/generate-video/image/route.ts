@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const imageFile = formData.get('image') as File;
     const optionsStr = formData.get('options') as string;
-    
+
     if (!imageFile) {
       return NextResponse.json(
         { error: 'No image file provided' },
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       webhookUrl: options.webhookUrl,
     };
-    
+
     // Save to both memory store and database
     saveJob(job);
-    
+
     try {
       // Save to Supabase database
       await createJob({
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to save job to database:', dbError);
       // Continue with memory store fallback
     }
-    
+
     publishProgress(job.id, { status: 'pending', progress: 0 });
     processImageToVideoGeneration(job, options, imageDataUrl).catch(console.error);
     return NextResponse.json(job);
@@ -100,14 +100,16 @@ async function processImageToVideoGeneration(job: GenerationJob, options: ImageT
       console.warn('Failed to update job in database:', dbError);
     }
     publishProgress(job.id, { status: 'processing', progress: 5 });
-    
-    const num_frames = options.duration * options.fps;
-    const output = await generateImageToVideo(imageDataUrl, { 
-      fps: options.fps, 
-      num_frames,
-      prompt: options.prompt || "A high quality video" 
+
+    const output = await generateImageToVideo(imageDataUrl, {
+      prompt: options.prompt || "A high quality video",
+      duration: options.duration || 5,
+      cfg_scale: options.cfgScale || 0.5,
+      negative_prompt: options.negativePrompt,
+      aspect_ratio: options.aspectRatio || "16:9",
+      use_as_start_image: options.useAsStartImage || false
     });
-    
+
     updateJob(job.id, { progress: 70 });
     try {
       await updateJobByExternalId(job.id, { progress: 70 });
@@ -115,15 +117,15 @@ async function processImageToVideoGeneration(job: GenerationJob, options: ImageT
       console.warn('Failed to update job progress in database:', dbError);
     }
     publishProgress(job.id, { status: 'processing', progress: 70 });
-    
+
     const resultUrl = await persistAndGetUrl(output, job.id);
-    
+
     // Update completion status
     updateJob(job.id, { status: 'completed', progress: 100, resultUrl, completedAt: new Date() });
     try {
-      await updateJobByExternalId(job.id, { 
-        status: 'completed', 
-        progress: 100, 
+      await updateJobByExternalId(job.id, {
+        status: 'completed',
+        progress: 100,
         resultUrl: resultUrl,
         completedAt: new Date().toISOString()
       });
@@ -132,13 +134,13 @@ async function processImageToVideoGeneration(job: GenerationJob, options: ImageT
       console.warn('Failed to update job completion in database:', dbError);
     }
     publishProgress(job.id, { status: 'completed', progress: 100, resultUrl });
-    
+
     if (job.webhookUrl) {
       await notifyN8n(job.webhookUrl, { jobId: job.id, status: 'tamamlandı', progress: 100, resultUrl });
     }
   } catch (error) {
     const message = (error as Error)?.message || 'Unknown error';
-    
+
     updateJob(job.id, { status: 'failed', progress: 100, error: message });
     try {
       await updateJobByExternalId(job.id, { status: 'failed', error: message });
@@ -146,7 +148,7 @@ async function processImageToVideoGeneration(job: GenerationJob, options: ImageT
       console.warn('Failed to update job error in database:', dbError);
     }
     publishProgress(job.id, { status: 'failed', progress: 100, error: message });
-    
+
     if (job.webhookUrl) {
       await notifyN8n(job.webhookUrl, { jobId: job.id, status: 'hata', progress: 100, error: message });
     }

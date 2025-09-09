@@ -15,13 +15,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ImageUploader } from './ImageUploader';
 import { ImageToVideoOptions } from '@/lib/types';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
 
 const schema = z.object({
   prompt: z.string().optional(),
-  motionIntensity: z.enum(['low', 'medium', 'high']),
-  cameraMovement: z.enum(['none', 'zoom_in', 'zoom_out', 'pan_left', 'pan_right']),
-  duration: z.number().min(2).max(10),
-  fps: z.number().int().min(24).max(60),
+  duration: z.number().min(5).max(10),
+  cfgScale: z.number().min(0).max(1),
+  negativePrompt: z.string().optional(),
+  aspectRatio: z.enum(['16:9', '9:16', '1:1']),
+  useAsStartImage: z.boolean(),
   webhookUrl: z.string().url().optional().or(z.literal('')),
 });
 
@@ -41,18 +44,23 @@ export function ImageToVideo({ onGenerate, isGenerating }: ImageToVideoProps) {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isValid }
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       prompt: '',
-      motionIntensity: 'medium',
-      cameraMovement: 'none',
-      duration: 4,
-      fps: 30,
+      duration: 5,
+      cfgScale: 0.5,
+      negativePrompt: '',
+      aspectRatio: '16:9',
+      useAsStartImage: false,
       webhookUrl: '',
     },
   });
+
+  const cfgScale = watch('cfgScale');
+  const useAsStartImage = watch('useAsStartImage');
 
   const handleImageSelect = (file: File, previewUrl: string) => {
     setSelectedFile(file);
@@ -80,7 +88,7 @@ export function ImageToVideo({ onGenerate, isGenerating }: ImageToVideoProps) {
           <span>Image to Video</span>
         </CardTitle>
         <CardDescription>
-          Animate your images with AI-powered motion
+          Animate your images with AI-powered motion using Kling model
         </CardDescription>
       </CardHeader>
 
@@ -95,75 +103,74 @@ export function ImageToVideo({ onGenerate, isGenerating }: ImageToVideoProps) {
 
           {/* Animation Prompt */}
           <div className="space-y-2">
-            <Label htmlFor="prompt">Animation Description (Optional)</Label>
+            <Label htmlFor="prompt">Video Description</Label>
             <Textarea
               {...register('prompt')}
-              placeholder="Describe how you want the image to move (e.g., 'gentle wind blowing through hair', 'waves crashing on shore')..."
+              placeholder="Describe what you want to see in the video (e.g., 'a beautiful sunset over mountains', 'people walking in a busy street')..."
               className="min-h-[100px]"
             />
             <p className="text-xs text-muted-foreground">
-              Leave empty for automatic motion detection and animation
+              Describe the motion, objects, and scene you want to generate
             </p>
           </div>
 
-          {/* Motion Settings */}
+          {/* Basic Settings */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="motionIntensity">Motion Intensity</Label>
-              <Select onValueChange={(value) => setValue('motionIntensity', value as any)}>
+              <Label htmlFor="duration">Duration</Label>
+              <Select onValueChange={(value) => setValue('duration', parseInt(value))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select intensity" />
+                  <SelectValue placeholder="Select duration" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">
-                    <div>
-                      <div className="font-medium">Low</div>
-                      <div className="text-xs text-muted-foreground">Subtle motion</div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="medium">
-                    <div>
-                      <div className="font-medium">Medium</div>
-                      <div className="text-xs text-muted-foreground">Balanced animation</div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="high">
-                    <div>
-                      <div className="font-medium">High</div>
-                      <div className="text-xs text-muted-foreground">Dynamic motion</div>
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="5">5 seconds</SelectItem>
+                  <SelectItem value="10">10 seconds</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cameraMovement">Camera Movement</Label>
-              <Select onValueChange={(value) => setValue('cameraMovement', value as any)}>
+              <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+              <Select onValueChange={(value) => setValue('aspectRatio', value as any)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select movement" />
+                  <SelectValue placeholder="Select aspect ratio" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="zoom_in">Zoom In</SelectItem>
-                  <SelectItem value="zoom_out">Zoom Out</SelectItem>
-                  <SelectItem value="pan_left">Pan Left</SelectItem>
-                  <SelectItem value="pan_right">Pan Right</SelectItem>
+                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                  <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Webhook URL */}
+          {/* Image Usage Mode */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                checked={useAsStartImage}
+                onCheckedChange={(checked) => setValue('useAsStartImage', !!checked)}
+              />
+              <Label htmlFor="useAsStartImage">Use image as first frame</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {useAsStartImage
+                ? "Image will be the exact first frame of the video"
+                : "Image will be used as reference/scene element"
+              }
+            </p>
+          </div>
+
+          {/* n8n Webhook URL */}
           <div className="space-y-2">
             <Label htmlFor="webhookUrl">n8n Webhook URL (Optional)</Label>
             <Input
               {...register('webhookUrl')}
-              placeholder="https://your-n8n-instance.com/webhook/video-generation"
-              className="font-mono text-xs"
+              placeholder="https://your-n8n-instance.com/webhook/your-webhook-id"
+              className="font-mono text-sm"
             />
             {errors.webhookUrl && (
-              <p className="text-xs text-destructive">{errors.webhookUrl.message}</p>
+              <p className="text-xs text-red-500">{errors.webhookUrl.message}</p>
             )}
           </div>
 
@@ -173,46 +180,38 @@ export function ImageToVideo({ onGenerate, isGenerating }: ImageToVideoProps) {
               <Button variant="ghost" className="w-full justify-start">
                 <Settings className="w-4 h-4 mr-2" />
                 Advanced Settings
-                <motion.div
-                  animate={{ rotate: showAdvanced ? 180 : 0 }}
-                  className="ml-auto"
-                >
-                  ▼
-                </motion.div>
               </Button>
             </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 pt-4">
+              {/* CFG Scale */}
+              <div className="space-y-2">
+                <Label htmlFor="cfgScale">
+                  CFG Scale: {cfgScale?.toFixed(1)}
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (Higher = more prompt adherence)
+                  </span>
+                </Label>
+                <Slider
+                  value={[cfgScale || 0.5]}
+                  onValueChange={([value]) => setValue('cfgScale', value)}
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  className="w-full"
+                />
+              </div>
 
-            <CollapsibleContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="duration">Duration (seconds)</Label>
-                  <Select onValueChange={(value) => setValue('duration', parseInt(value))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Duration" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2">2 seconds</SelectItem>
-                      <SelectItem value="4">4 seconds</SelectItem>
-                      <SelectItem value="6">6 seconds</SelectItem>
-                      <SelectItem value="8">8 seconds</SelectItem>
-                      <SelectItem value="10">10 seconds</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="fps">Frame Rate</Label>
-                  <Select onValueChange={(value) => setValue('fps', parseInt(value))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="FPS" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="24">24 FPS</SelectItem>
-                      <SelectItem value="30">30 FPS</SelectItem>
-                      <SelectItem value="60">60 FPS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Negative Prompt */}
+              <div className="space-y-2">
+                <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
+                <Textarea
+                  {...register('negativePrompt')}
+                  placeholder="Things you don't want to see (e.g., 'blurry, distorted, low quality')..."
+                  className="min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Describe what you want to avoid in the video
+                </p>
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -220,26 +219,26 @@ export function ImageToVideo({ onGenerate, isGenerating }: ImageToVideoProps) {
           {/* Generate Button */}
           <Button
             type="submit"
+            size="lg"
+            className="w-full"
             disabled={!canSubmit}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3"
           >
             {isGenerating ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
-              />
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"
+                />
+                Generating Video...
+              </>
             ) : (
-              <Play className="w-5 h-5 mr-2" />
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Generate Video
+              </>
             )}
-            {isGenerating ? 'Animating Image...' : 'Animate Image'}
           </Button>
-
-          {!selectedFile && (
-            <p className="text-sm text-muted-foreground text-center">
-              Please upload an image to continue
-            </p>
-          )}
         </form>
       </CardContent>
     </Card>

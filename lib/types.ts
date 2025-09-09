@@ -13,10 +13,11 @@ export interface VideoGenerationOptions {
 
 export interface ImageToVideoOptions {
   prompt?: string;
-  motionIntensity: 'low' | 'medium' | 'high';
-  cameraMovement: 'none' | 'zoom_in' | 'zoom_out' | 'pan_left' | 'pan_right';
-  duration: number;
-  fps: number;
+  duration: number; // Duration in seconds (5 or 10)
+  cfgScale?: number; // Flexibility (0-1)
+  negativePrompt?: string; // What not to include
+  aspectRatio?: string; // "16:9", "9:16", "1:1"
+  useAsStartImage?: boolean; // Use image as first frame vs reference
   webhookUrl?: string; // n8n webhook URL'i
 }
 

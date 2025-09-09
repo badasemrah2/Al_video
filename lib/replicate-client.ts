@@ -90,19 +90,34 @@ export async function generateTextToVideo(
 
 export async function generateImageToVideo(
   image: string,
-  options: { motion_bucket_id?: number; fps: number; num_frames: number; prompt?: string }
+  options: { 
+    prompt?: string; 
+    duration?: number; 
+    cfg_scale?: number; 
+    negative_prompt?: string;
+    aspect_ratio?: string;
+    use_as_start_image?: boolean;
+  }
 ) {
   if (!image) throw new Error('Image required');
   
-  // Kling model uses reference_images parameter for image-to-video
+  // Kling model input according to official schema
   const input: any = { 
-    reference_images: [image], // Kling model expects an array of reference images
-    prompt: options.prompt || "A high quality video"
+    prompt: options.prompt || "A high quality video",
+    duration: options.duration || 5 // Duration in seconds (5 or 10)
   };
   
-  // Add other Kling-specific parameters if provided
-  if (options.fps) input.fps = options.fps;
-  if (options.num_frames) input.num_frames = options.num_frames;
+  // Choose between start_image or reference_images based on use case
+  if (options.use_as_start_image) {
+    input.start_image = image; // First frame of the video
+  } else {
+    input.reference_images = [image]; // Scene elements/reference
+  }
+  
+  // Add optional Kling-specific parameters
+  if (options.cfg_scale !== undefined) input.cfg_scale = options.cfg_scale;
+  if (options.negative_prompt) input.negative_prompt = options.negative_prompt;
+  if (options.aspect_ratio) input.aspect_ratio = options.aspect_ratio;
   
   return await replicate.run(
     modelRef(IMG2VIDEO_MODEL, IMG2VIDEO_VERSION),
