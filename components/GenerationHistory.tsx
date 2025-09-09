@@ -16,9 +16,10 @@ interface GenerationHistoryProps {
   onDownload: (jobId: string, filename?: string) => void;
   onDelete: (jobId: string) => void;
   onClearAll?: () => void;
+  onManualCheck?: (jobId: string) => void;
 }
 
-export function GenerationHistory({ jobs, onDownload, onDelete, onClearAll }: GenerationHistoryProps) {
+export function GenerationHistory({ jobs, onDownload, onDelete, onClearAll, onManualCheck }: GenerationHistoryProps) {
   const [query, setQuery] = React.useState('');
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
@@ -212,6 +213,36 @@ export function GenerationHistory({ jobs, onDownload, onDelete, onClearAll }: Ge
                     {job.createdAt && <span className="text-xs text-muted-foreground/70">{new Date(job.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
                   </div>
                   <div className="flex items-center gap-1">
+                    {/* Debug info */}
+                    <span className="text-xs text-red-500">
+                      {job.status} | {onManualCheck ? 'checkFn✓' : 'checkFn✗'}
+                    </span>
+                    
+                    {job.status === 'processing' && onManualCheck && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onManualCheck(job.id)}
+                        className="h-7 px-2 text-xs"
+                        title="Check Replicate status manually"
+                      >
+                        🔄 Check
+                      </Button>
+                    )}
+                    
+                    {/* Show check button for pending too */}
+                    {(job.status === 'pending' || job.status === 'processing') && onManualCheck && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onManualCheck(job.id)}
+                        className="h-7 px-2 text-xs bg-orange-100"
+                        title="Manual check Replicate status"
+                      >
+                        🔍 Force Check
+                      </Button>
+                    )}
+                    
                     {job.status === 'completed' && job.resultUrl && (
                       <>
                         <Button

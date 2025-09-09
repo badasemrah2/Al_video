@@ -29,6 +29,7 @@ export default function Home() {
     generateTextToVideo,
     generateImageToVideo,
     downloadVideo,
+    manualCheckStatus,
     temizle
   } = useVideoGeneration();
 
@@ -222,6 +223,7 @@ export default function Home() {
                     setGenerationHistory(prev => prev.filter(job => job.id !== jobId));
                   }}
                   onClearAll={() => setGenerationHistory([])}
+                  onManualCheck={manualCheckStatus}
                 />
               </motion.div>
             </div>

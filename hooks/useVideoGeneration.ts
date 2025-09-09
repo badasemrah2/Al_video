@@ -116,6 +116,48 @@ export function useVideoGeneration() {
     setCurrentJob(null);
   }, []);
 
+  const manualCheckStatus = useCallback(async (jobId: string) => {
+    try {
+      toast.loading('Checking Replicate status...');
+      
+      const response = await fetch('/api/replicate/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ predictionId: jobId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check status');
+      }
+
+      const result = await response.json();
+      toast.dismiss();
+      
+      if (result.status === 'succeeded') {
+        toast.success('Video found! Updating status...');
+        // Trigger a refresh of current job
+        if (currentJob && currentJob.id === jobId) {
+          const updatedJob = await ApiClient.getJobStatus(jobId);
+          if (updatedJob) {
+            setCurrentJob(updatedJob);
+          }
+        }
+        // Trigger history refresh
+        window.dispatchEvent(new CustomEvent('videoJobCompleted'));
+      } else if (result.status === 'failed') {
+        toast.error(`Generation failed: ${result.error || 'Unknown error'}`);
+      } else {
+        toast.info(`Status: ${result.status}`);
+      }
+
+      console.log('Manual check result:', result);
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to check status');
+      console.error('Manual check failed:', error);
+    }
+  }, [currentJob]);
+
   return {
     currentJob: polledJob || currentJob,
     isGenerating: polling || Boolean(currentJob && ['pending', 'processing'].includes(currentJob.status)),
@@ -123,6 +165,7 @@ export function useVideoGeneration() {
     generateImageToVideo,
     downloadVideo,
     clearCurrentJob,
+    manualCheckStatus,
     temizle: clearCurrentJob, // Turkish alias
   };
 }

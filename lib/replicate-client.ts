@@ -90,11 +90,19 @@ export async function generateTextToVideo(
 
 export async function generateImageToVideo(
   image: string,
-  options: { motion_bucket_id?: number; fps: number; num_frames: number }
+  options: { motion_bucket_id?: number; fps: number; num_frames: number; prompt?: string }
 ) {
   if (!image) throw new Error('Image required');
+  
+  // Kling model requires prompt parameter
+  const input: any = { 
+    image,
+    prompt: options.prompt || "A high quality video",
+    ...options 
+  };
+  
   return await replicate.run(
     modelRef(IMG2VIDEO_MODEL, IMG2VIDEO_VERSION),
-    { input: { image, ...options } }
+    { input }
   );
 }
